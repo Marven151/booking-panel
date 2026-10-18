@@ -28,8 +28,8 @@ button{cursor:pointer}
 .nav{display:flex;gap:6px}
 .nav button{width:44px;height:44px;border:0;background:var(--surface);font-size:1.25rem}
 .nav button:hover{background:var(--ink);color:#fff}
-.months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px 24px}
-.month h3{font-family:var(--display);font-weight:700;font-size:1.5rem;letter-spacing:-.02em;text-transform:lowercase;margin-bottom:10px}
+.months{min-height:420px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px 24px}
+.month h2{font-family:var(--display);font-weight:700;font-size:1.5rem;letter-spacing:-.02em;text-transform:lowercase;margin-bottom:10px}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .wd{font-size:.8125rem;color:var(--muted);text-align:center;padding:4px 0}
 .day{min-height:46px;border:0;background:var(--surface);font-weight:600;font-variant-numeric:tabular-nums}

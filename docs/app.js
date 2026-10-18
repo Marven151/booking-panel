@@ -15,7 +15,7 @@ function monthEl(offset) {
   const m = first.getUTCMonth();
   const el = document.createElement("div");
   el.className = "month";
-  el.innerHTML = `<h3>${MONTHS[m]} ${y}</h3>`;
+  el.innerHTML = `<h2>${MONTHS[m]} ${y}</h2>`;
   const grid = document.createElement("div");
   grid.className = "grid";
   DAYS.forEach((d) => grid.insertAdjacentHTML("beforeend", `<div class="wd">${d}</div>`));
