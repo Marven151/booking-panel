@@ -1,5 +1,7 @@
 # booking-panel
 
+[![tests](https://github.com/Marven151/booking-panel/actions/workflows/test.yml/badge.svg)](https://github.com/Marven151/booking-panel/actions/workflows/test.yml)
+
 Booking requests for a small holiday apartment. A guest picks dates on a calendar, sees the price and sends a request. The owner logs in to a panel, confirms or declines requests and blocks dates. Confirmed stays and blocks disappear from the guest calendar.
 
 **Live demo:** https://marven151.github.io/booking-panel/ (owner panel: `admin.html`, password `demo`)
