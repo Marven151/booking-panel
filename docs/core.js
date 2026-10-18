@@ -53,23 +53,27 @@ export function isFree(start, end, busy) {
   return !busy.some((b) => overlaps(start, end, b.start, b.end));
 }
 
+const str = (v) => (typeof v === "string" ? v.trim() : "");
+
 export function validateRequest(r, today) {
   const errors = {};
-  const name = String(r.name ?? "").trim();
-  const mail = String(r.email ?? "").trim();
-  const phone = String(r.phone ?? "").trim();
-  const message = String(r.message ?? "").trim();
-  const guests = Number(r.guests);
+  if (!r || typeof r !== "object" || Array.isArray(r)) return { ok: false, errors: { dates: "Niepoprawne zapytanie." }, clean: {} };
+  const name = str(r.name);
+  const mail = str(r.email);
+  const phone = str(r.phone);
+  const message = str(r.message);
+  const guests = typeof r.guests === "number" || (typeof r.guests === "string" && r.guests.trim() !== "") ? Number(r.guests) : NaN;
   if (name.length < 2 || name.length > 80) errors.name = "Podaj imię i nazwisko.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail) || mail.length > 120) errors.email = "Podaj poprawny adres e-mail.";
+  if (!/^[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]{2,}$/.test(mail) || mail.length > 120) errors.email = "Podaj poprawny adres e-mail.";
   if (phone && !/^[0-9+() -]{6,30}$/.test(phone)) errors.phone = "Podaj poprawny numer telefonu.";
   if (!Number.isInteger(guests) || guests < 1 || guests > MAX_GUESTS) errors.guests = `Liczba osób: od 1 do ${MAX_GUESTS}.`;
   if (message.length > 500) errors.message = "Wiadomość może mieć do 500 znaków.";
-  const s = parseISO(r.start);
-  const e = parseISO(r.end);
+  const s = typeof r.start === "string" ? parseISO(r.start) : null;
+  const e = typeof r.end === "string" ? parseISO(r.end) : null;
   if (!s || !e) errors.dates = "Wybierz datę przyjazdu i wyjazdu.";
   else if (r.start < today) errors.dates = "Data przyjazdu jest w przeszłości.";
   else if (r.end <= r.start) errors.dates = "Wyjazd musi być po przyjeździe.";
+  else if (r.end > "2100-01-01") errors.dates = "Wybierz bliższy termin.";
   else if (nights(r.start, r.end) > MAX_NIGHTS) errors.dates = `Maksymalny pobyt to ${MAX_NIGHTS} nocy.`;
   const clean = { start: r.start, end: r.end, name, email: mail, phone, guests, message };
   return { ok: Object.keys(errors).length === 0, errors, clean };

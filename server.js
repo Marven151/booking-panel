@@ -16,7 +16,7 @@ const MIME = {
   ".json": "application/json; charset=utf-8",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
 
 function openDb(dbPath) {
   const db = new DatabaseSync(dbPath);
@@ -61,20 +61,26 @@ class HttpError extends Error {
 function readJson(req, limit = 10_000) {
   return new Promise((resolve, reject) => {
     let size = 0;
+    let settled = false;
     const chunks = [];
     req.on("data", (c) => {
       size += c.length;
       if (size > limit) {
-        reject(new HttpError(413, "Zbyt duże zapytanie."));
-        req.destroy();
+        if (!settled) {
+          settled = true;
+          reject(new HttpError(413, "Zbyt duże zapytanie."));
+        }
         return;
       }
       chunks.push(c);
     });
     req.on("end", () => {
+      if (settled) return;
       if (!chunks.length) return resolve({});
       try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        if (value === null || typeof value !== "object" || Array.isArray(value)) return reject(new HttpError(400, "Oczekiwano obiektu JSON."));
+        resolve(value);
       } catch {
         reject(new HttpError(400, "Niepoprawny JSON."));
       }
@@ -83,13 +89,17 @@ function readJson(req, limit = 10_000) {
   });
 }
 
+const CSP = "default-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'self'; base-uri 'none'; form-action 'self'";
+
 function send(res, status, body) {
   const data = JSON.stringify(body);
-  res.writeHead(status, {
+  const headers = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
-  });
+  };
+  if (status === 413) headers.Connection = "close";
+  res.writeHead(status, headers);
   res.end(data);
 }
 
@@ -99,7 +109,7 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
-export function createApp({ dbPath = ":memory:", adminPassword }) {
+export function createApp({ dbPath = ":memory:", adminPassword, trustProxy = false }) {
   if (!adminPassword) throw new Error("adminPassword is required");
   const db = openDb(dbPath);
   const tokens = new Map();
@@ -108,9 +118,28 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
   function limited(key, max, windowMs) {
     const now = Date.now();
     const list = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+    if (list.length >= max) {
+      hits.set(key, list);
+      return true;
+    }
     list.push(now);
     hits.set(key, list);
-    return list.length > max;
+    return false;
+  }
+
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [k, list] of hits) if (!list.some((t) => now - t < 60_000)) hits.delete(k);
+    for (const [t, exp] of tokens) if (exp < now) tokens.delete(t);
+  }, 60_000);
+  sweep.unref();
+
+  function clientIp(req) {
+    if (trustProxy) {
+      const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
+      if (forwarded) return forwarded;
+    }
+    return req.socket.remoteAddress ?? "unknown";
   }
 
   function requireAdmin(req) {
@@ -122,7 +151,7 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
   const getRequest = (id) => db.prepare("SELECT * FROM requests WHERE id = ?").get(id);
 
   async function api(req, res, url) {
-    const ip = req.socket.remoteAddress ?? "unknown";
+    const ip = clientIp(req);
     const route = `${req.method} ${url.pathname}`;
 
     if (route === "GET /api/health") return send(res, 200, { ok: true, mode: "server" });
@@ -165,7 +194,7 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
       if (status && req.method === "POST") {
         const id = Number(status[1]);
         const next = (await readJson(req)).status;
-        if (!["confirmed", "declined"].includes(next)) throw new HttpError(422, "Nieznany status.");
+        if (typeof next !== "string" || !["confirmed", "declined"].includes(next)) throw new HttpError(422, "Nieznany status.");
         const row = getRequest(id);
         if (!row) throw new HttpError(404, "Nie ma takiego zapytania.");
         if (next === "confirmed") {
@@ -185,10 +214,12 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
 
       if (route === "POST /api/admin/blocks") {
         const b = await readJson(req);
-        const s = core.parseISO(b.start);
-        const e = core.parseISO(b.end);
-        if (!s || !e || b.end <= b.start) throw new HttpError(422, "Podaj poprawny zakres dat.");
-        const note = String(b.note ?? "").trim().slice(0, 80);
+        const s = typeof b.start === "string" ? core.parseISO(b.start) : null;
+        const e = typeof b.end === "string" ? core.parseISO(b.end) : null;
+        if (!s || !e || b.end <= b.start || b.end > "2100-01-01") throw new HttpError(422, "Podaj poprawny zakres dat.");
+        const confirmed = db.prepare("SELECT start, end FROM requests WHERE status = 'confirmed'").all();
+        if (!core.isFree(b.start, b.end, confirmed)) throw new HttpError(409, "Blokada nakłada się na potwierdzoną rezerwację.");
+        const note = (typeof b.note === "string" ? b.note : "").trim().slice(0, 80);
         const info = db.prepare("INSERT INTO blocks (start, end, note) VALUES (?, ?, ?)").run(b.start, b.end, note);
         return send(res, 201, { id: Number(info.lastInsertRowid) });
       }
@@ -204,7 +235,12 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
   }
 
   function serveStatic(req, res, url) {
-    const rel = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
+    let rel;
+    try {
+      rel = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
+    } catch {
+      throw new HttpError(400, "Niepoprawny adres.");
+    }
     const file = path.normalize(path.join(DOCS, rel));
     if (!file.startsWith(DOCS + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -213,6 +249,8 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
     res.writeHead(200, {
       "Content-Type": MIME[path.extname(file)] ?? "application/octet-stream",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": CSP,
+      "Referrer-Policy": "no-referrer",
     });
     fs.createReadStream(file).pipe(res);
   }
@@ -220,7 +258,12 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     try {
-      if (url.pathname.startsWith("/api/")) return await api(req, res, url);
+      if (url.pathname.startsWith("/api/")) {
+        if (req.method === "POST" && !String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+          throw new HttpError(415, "Oczekiwano application/json.");
+        }
+        return await api(req, res, url);
+      }
       if (req.method !== "GET" && req.method !== "HEAD") throw new HttpError(405, "Metoda niedozwolona.");
       return serveStatic(req, res, url);
     } catch (e) {
@@ -234,10 +277,14 @@ export function createApp({ dbPath = ":memory:", adminPassword }) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "demo";
-  if (!process.env.ADMIN_PASSWORD) console.warn("ADMIN_PASSWORD not set, using the demo password 'demo'");
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length < 6) {
+    console.error("Set ADMIN_PASSWORD (at least 6 characters) before starting the server.");
+    process.exit(1);
+  }
   const port = Number(process.env.PORT ?? 3000);
-  createApp({ dbPath: process.env.DB_PATH ?? "booking.db", adminPassword }).listen(port, () => {
+  const trustProxy = process.env.TRUST_PROXY === "1";
+  createApp({ dbPath: process.env.DB_PATH ?? "booking.db", adminPassword, trustProxy }).listen(port, () => {
     console.log(`http://localhost:${port}  (owner panel: /admin.html)`);
   });
 }

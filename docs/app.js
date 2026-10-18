@@ -121,11 +121,7 @@ async function init() {
   const sel = document.querySelector('select[name="guests"]');
   for (let i = 1; i <= core.MAX_GUESTS; i++) sel.insertAdjacentHTML("beforeend", `<option value="${i}">${i}</option>`);
   api = await createApi();
-  if (api.mode === "demo") {
-    const b = $("#banner");
-    b.hidden = false;
-    b.innerHTML = 'Tryb demo: dane zapisują się tylko w tej przeglądarce, nic nie jest wysyłane na serwer. Panel właściciela: <a href="admin.html">admin.html</a>, hasło <b>demo</b>.';
-  }
+  if (api.mode !== "demo") $("#banner").hidden = true;
   state.busy = await api.busy();
   $("#prev").addEventListener("click", () => { state.offset = Math.max(0, state.offset - 2); render(); });
   $("#next").addEventListener("click", () => { state.offset = Math.min(22, state.offset + 2); render(); });

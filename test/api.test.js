@@ -79,3 +79,49 @@ test("owner blocks make dates unavailable and can be removed", async () => {
   assert.equal((await call("POST", "/api/requests", guest(future(81), future(83)))).status, 201);
   server.close();
 });
+
+test("odd payloads get a 4xx instead of a server error", async () => {
+  const { server, call } = await start();
+  const raw = async (path, body, type = "application/json") => {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: "POST", headers: { "Content-Type": type }, body });
+    return res.status;
+  };
+  assert.equal(await raw("/api/requests", "null"), 400);
+  assert.equal(await raw("/api/requests", "[1]"), 400);
+  assert.equal(await raw("/api/admin/login", "null"), 400);
+  assert.equal(await raw("/api/requests", "{}", "text/plain"), 415);
+  const arr = await call("POST", "/api/requests", { start: [future(30)], end: [future(33)], name: "Anna", email: "a@b.pl", guests: 2 });
+  assert.equal(arr.status, 422);
+  const obj = await call("POST", "/api/requests", { start: future(30), end: future(33), name: { a: 1 }, email: "a@b.pl", guests: 2 });
+  assert.equal(obj.status, 422);
+  const res = await fetch(`http://127.0.0.1:${server.address().port}/%`);
+  assert.equal(res.status, 400);
+  server.close();
+});
+
+test("an e-mail address cannot carry markup", async () => {
+  const { server, call } = await start();
+  const r = await call("POST", "/api/requests", guest(future(30), future(33)));
+  assert.equal(r.status, 201);
+  const bad = await call("POST", "/api/requests", { ...guest(future(50), future(53)), email: 'x"onmouseover="alert(1)//@a.pl' });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.errors.email);
+  server.close();
+});
+
+test("an oversized body is answered with 413", async () => {
+  const { server } = await start();
+  const res = await fetch(`http://127.0.0.1:${server.address().port}/api/requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "x".repeat(30_000) }) });
+  assert.equal(res.status, 413);
+  server.close();
+});
+
+test("a block cannot overlap a confirmed stay", async () => {
+  const { server, call } = await start();
+  const { body: { token } } = await call("POST", "/api/admin/login", { password: "secret" });
+  const a = await call("POST", "/api/requests", guest(future(70), future(74)));
+  await call("POST", `/api/admin/requests/${a.body.id}/status`, { status: "confirmed" }, token);
+  const blk = await call("POST", "/api/admin/blocks", { start: future(72), end: future(76) }, token);
+  assert.equal(blk.status, 409);
+  server.close();
+});

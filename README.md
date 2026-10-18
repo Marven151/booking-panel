@@ -12,7 +12,7 @@ The live demo runs entirely in the browser: data is kept in `localStorage`, so e
 - `docs/core.js`: the shared rules (price per night, season, overlap, validation). The server and the browser demo use the same file, so they cannot disagree.
 - `docs/api.js`: one interface with two backends: the real server, or `localStorage` for the demo.
 - `docs/index.html`, `docs/admin.html`: guest page and owner panel.
-- `test/`: 15 tests for the rules and the API.
+- `test/`: 19 tests for the rules and the API, including malformed input, markup in e-mail addresses, oversized bodies and overlapping blocks.
 
 ## Run it
 
@@ -22,7 +22,7 @@ Needs Node 22.5 or newer.
 ADMIN_PASSWORD='choose-one' npm start
 ```
 
-Open http://localhost:3000. The owner panel is at `/admin.html`. Without `ADMIN_PASSWORD` the server starts with the password `demo` and says so.
+Open http://localhost:3000. The owner panel is at `/admin.html`. The server refuses to start without `ADMIN_PASSWORD` (at least 6 characters). Behind a reverse proxy set `TRUST_PROXY=1` so rate limits use the visitor's address.
 
 ```bash
 npm test

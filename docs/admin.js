@@ -14,7 +14,7 @@ function mailDraft(r) {
   const body = r.status === "confirmed"
     ? `Dzień dobry,\n\npotwierdzam rezerwację w terminie ${core.formatDatePL(r.start)} – ${core.formatDatePL(r.end)} (${core.nights(r.start, r.end)} nocy, ${core.formatPLN(r.total)}).\n\nPozdrawiam`
     : `Dzień dobry,\n\nniestety termin ${core.formatDatePL(r.start)} – ${core.formatDatePL(r.end)} jest niedostępny. Chętnie zaproponuję inny.\n\nPozdrawiam`;
-  return `mailto:${r.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return esc(`mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
 }
 
 function renderStats() {
@@ -76,11 +76,7 @@ async function showApp() {
 
 async function init() {
   api = await createApi();
-  if (api.mode === "demo") {
-    const b = $("#banner");
-    b.hidden = false;
-    b.innerHTML = "Tryb demo: dane zapisują się tylko w tej przeglądarce. Hasło do panelu: <b>demo</b>.";
-  }
+  if (api.mode !== "demo") $("#banner").hidden = true;
   $("#login").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     $("#loginErr").textContent = "";
