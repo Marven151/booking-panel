@@ -8,7 +8,7 @@ The live demo runs entirely in the browser: data is kept in `localStorage`, so e
 
 ## What is in here
 
-- `server.js`: HTTP server on Node's built-in `http` and `node:sqlite`, no dependencies. Validates every request on the server, refuses overlapping stays, hashes nothing it does not need to, limits request and login rates, and serves the front end.
+- `server.js`: HTTP server on Node's built-in `http` and `node:sqlite`, no dependencies. Validates every request on the server, refuses overlapping stays, limits request and login rates, compares the password in constant time and serves the front end.
 - `docs/core.js`: the shared rules (price per night, season, overlap, validation). The server and the browser demo use the same file, so they cannot disagree.
 - `docs/api.js`: one interface with two backends: the real server, or `localStorage` for the demo.
 - `docs/index.html`, `docs/admin.html`: guest page and owner panel.
