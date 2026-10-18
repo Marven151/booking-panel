@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apartament Morze: zapytanie o termin</title>
+<meta name="description" content="Demo systemu rezerwacji dla małego apartamentu: gość wybiera termin i wysyła zapytanie, właściciel potwierdza w panelu.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a4be0'/%3E%3Cpath d='M8 17l5 5 11-12' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@700&family=Figtree:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@700&family=Figtree:wght@400;600&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./">apartament morze</a>
+  <nav aria-label="Główne"><a href="admin.html">Panel właściciela</a></nav>
+</header>
+<p class="banner" id="banner" hidden></p>
+<main>
+  <section class="hero">
+    <h1 class="display">wybierz termin, cena od ręki</h1>
+    <p>Zaznacz przyjazd i wyjazd. Cena liczy się sama, a zapytanie trafia do właściciela, który je potwierdza.</p>
+  </section>
+  <section class="book">
+    <div class="cal" aria-label="Kalendarz dostępności">
+      <div class="calhead">
+        <div class="legend"><span><i style="background:var(--surface)"></i>wolne</span><span><i style="background:#e4e4e4"></i>zajęte</span><span><i style="background:var(--accent)"></i>twój wybór</span></div>
+        <div class="nav"><button type="button" id="prev" aria-label="Wcześniejsze miesiące">‹</button><button type="button" id="next" aria-label="Późniejsze miesiące">›</button></div>
+      </div>
+      <div class="months" id="months"></div>
+    </div>
+    <aside class="panel">
+      <h2>twoje zapytanie</h2>
+      <div class="summary" id="summary" aria-live="polite"><p class="dates">Wybierz datę przyjazdu, potem wyjazdu.</p></div>
+      <form id="form" novalidate>
+        <label>Imię i nazwisko<input name="name" autocomplete="name" required><span class="err" data-for="name"></span></label>
+        <label>Adres e-mail<input name="email" type="email" autocomplete="email" required><span class="err" data-for="email"></span></label>
+        <div class="row2">
+          <label>Telefon<input name="phone" type="tel" autocomplete="tel"><span class="err" data-for="phone"></span></label>
+          <label>Liczba osób<select name="guests"></select><span class="err" data-for="guests"></span></label>
+        </div>
+        <label>Wiadomość<textarea name="message" maxlength="500"></textarea><span class="err" data-for="message"></span></label>
+        <span class="err" data-for="dates"></span>
+        <button class="btn" type="submit" id="submit">Wyślij zapytanie</button>
+      </form>
+      <div class="ok" id="ok" role="status" hidden></div>
+    </aside>
+  </section>
+</main>
+<footer>Demo systemu rezerwacji. Ceny: czerwiec–sierpień 1&nbsp;100&nbsp;zł za dobę, reszta roku 900&nbsp;zł, do 6 osób.</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>

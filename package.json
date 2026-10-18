@@ -1,0 +1,12 @@
+{
+  "name": "booking-panel",
+  "version": "1.0.0",
+  "description": "Booking requests for a small holiday apartment: guest page, owner panel, SQLite backend",
+  "type": "module",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
